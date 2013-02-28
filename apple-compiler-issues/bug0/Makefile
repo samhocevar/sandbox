@@ -7,5 +7,5 @@ all:
 	@echo "Type \"make fuckyeah\" if you are sure."
 
 fuckyeah:
-	$(SDK)/usr/bin/g++ $(CXXFLAGS) -c foo.cpp -o foo.o
+	$(SDK)/usr/bin/g++ $(CXXFLAGS) -c file.cpp -o file.o
 
