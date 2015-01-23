@@ -1,0 +1,7 @@
+.vs
+*.sdf
+*.opensdf
+Debug
+Release
+build-gcc
+build-clang
