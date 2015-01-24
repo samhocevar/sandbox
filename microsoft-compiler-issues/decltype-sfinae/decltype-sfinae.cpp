@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <typeinfo>
 
-template<typename... T> struct dummy {};
+template<typename...T> struct dummy {};
 
 struct my_struct_1
 {
@@ -33,15 +33,15 @@ template<typename R, template<typename...> class A,
                      template<typename...> class C>
 struct foo_caller
 {
-    template<typename I, typename... S>
-    static auto foo(I& i, S && ... s)
+    template<typename I, typename...S>
+    static auto foo(I& i, S &&...s)
         -> decltype(R::template foo<A, C>(i, s...), bool())
     {
         return R::template foo<A, C>(i, s...);
     }
 
-    template<typename I, typename... S>
-    static auto foo(I& i, S && ...)
+    template<typename I, typename...S>
+    static auto foo(I& i, S &&...)
         -> decltype(R::template foo(i), bool())
     {
         return R::foo(i);
@@ -54,9 +54,9 @@ int main()
     char x8;
 
     foo_caller<my_struct_1, dummy, dummy>::foo(x32);
-    foo_caller<my_struct_1, dummy, dummy>::foo(x32, 12345);
+    foo_caller<my_struct_1, dummy, dummy>::foo(x32, x32);
     foo_caller<my_struct_1, dummy, dummy>::foo(x8);
-    foo_caller<my_struct_1, dummy, dummy>::foo(x8, 12345);
+    foo_caller<my_struct_1, dummy, dummy>::foo(x8, x32);
 
     foo_caller<my_struct_2, dummy, dummy>::foo(x32);
     foo_caller<my_struct_2, dummy, dummy>::foo(x8);
