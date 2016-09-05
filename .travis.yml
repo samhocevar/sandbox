@@ -1,0 +1,17 @@
+sudo: required
+dist: trusty
+language: c++
+env: VERBOSE=1
+
+addons:
+  apt:
+    packages:
+      - build-essential
+
+os:
+  - linux
+
+compiler:
+  - gcc
+  - clang
+
