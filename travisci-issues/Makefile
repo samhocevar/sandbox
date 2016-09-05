@@ -2,7 +2,7 @@
 all: program
 
 program: program.cpp
-	$(CXX) $^ -o $@
+	$(CXX) -std=c++14 -Os -g -ffast-math $^ -o $@
 
 test:
 	@echo LOL
