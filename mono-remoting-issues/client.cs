@@ -34,16 +34,20 @@ namespace RemotingBug
             string b = method("B");
             Console.WriteLine("Test 2: {0}", b);
 
-            // Test 3: async call, with ref
-            string arg = "C";
-            ret = method_with_ref.BeginInvoke(ref arg, null, null);
-            string c = method_with_ref.EndInvoke(ref arg, ret);
+            // Test 3: invoke call
+            string c = method.Invoke("C");
             Console.WriteLine("Test 3: {0}", c);
 
-            // Test 4: async call, no ref
-            ret = method.BeginInvoke("D", null, null);
-            string d = method.EndInvoke(ret);
+            // Test 4: async call, with ref
+            string arg = "D";
+            ret = method_with_ref.BeginInvoke(ref arg, null, null);
+            string d = method_with_ref.EndInvoke(ref arg, ret);
             Console.WriteLine("Test 4: {0}", d);
+
+            // Test 5: async call, no ref
+            ret = method.BeginInvoke("E", null, null);
+            string e = method.EndInvoke(ret);
+            Console.WriteLine("Test 5: {0}", e);
 
             return 0;
         }
