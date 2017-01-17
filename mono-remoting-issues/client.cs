@@ -37,21 +37,13 @@ namespace RemotingBug
             // Test 3: async call, with ref
             string arg = "C";
             ret = method_with_ref.BeginInvoke(ref arg, null, null);
-            WaitHandle.WaitAny( new WaitHandle[1] { ret.AsyncWaitHandle, }, Timeout.Infinite );
-            if (ret.IsCompleted)
-            {
-                string c = method_with_ref.EndInvoke(ref arg, ret);
-                Console.WriteLine("Test 3: {0}", c);
-            }
+            string c = method_with_ref.EndInvoke(ref arg, ret);
+            Console.WriteLine("Test 3: {0}", c);
 
             // Test 4: async call, no ref
             ret = method.BeginInvoke("D", null, null);
-            WaitHandle.WaitAny( new WaitHandle[1] { ret.AsyncWaitHandle, }, Timeout.Infinite );
-            if (ret.IsCompleted)
-            {
-                string d = method.EndInvoke(ret);
-                Console.WriteLine("Test 4: {0}", d);
-            }
+            string d = method.EndInvoke(ret);
+            Console.WriteLine("Test 4: {0}", d);
 
             return 0;
         }
