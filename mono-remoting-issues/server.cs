@@ -9,8 +9,7 @@ namespace RemotingBug
     {
         public static int Main(string [] args)
         {
-            TcpChannel chan = new TcpChannel(8085);
-            ChannelServices.RegisterChannel(chan);
+            ChannelServices.RegisterChannel(new TcpChannel(8085), false);
             RemotingConfiguration.RegisterWellKnownServiceType(Type.GetType("RemotingBug.Interface,shared"),
                                                                "SayHello", WellKnownObjectMode.SingleCall);
             System.Console.WriteLine("Listening. Hit <enter> to exit...");

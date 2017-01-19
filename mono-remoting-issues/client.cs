@@ -8,46 +8,43 @@ namespace RemotingBug
 {
     public class Client
     {
-        delegate string HelloMethodDelegate(string name);
-        delegate string HelloMethodWithRefDelegate(ref string name);
+        delegate string HelloMethodDelegate(string s);
+        delegate string HelloMethodWithRefDelegate(ref string s);
 
         public static int Main(string [] args)
         {
-            TcpChannel chan = new TcpChannel();
-            ChannelServices.RegisterChannel(chan);
-            Interface obj = (Interface)Activator.GetObject(typeof(RemotingBug.Interface), "tcp://192.168.2.55:8085/SayHello");
-            if (obj == null)
+            if (args.Length != 1)
             {
-                System.Console.WriteLine("Could not locate server");
+                Console.WriteLine("Usage: client.exe <IP address>");
                 return -1;
             }
 
-            HelloMethodDelegate method = new HelloMethodDelegate(obj.HelloMethod);
-            HelloMethodWithRefDelegate method_with_ref = new HelloMethodWithRefDelegate(obj.HelloMethodWithRef);
-            IAsyncResult ret;
+            ChannelServices.RegisterChannel(new TcpChannel(), false);
+            var obj = (Interface)Activator.GetObject(typeof(RemotingBug.Interface), "tcp://" + args[0] + ":8085/SayHello");
+            if (obj == null)
+                return -1;
+
+            var m1 = new HelloMethodDelegate(obj.HelloMethod);
+            var m2 = new HelloMethodWithRefDelegate(obj.HelloMethodWithRef);
+            string s = "Hello";
+            IAsyncResult tmp;
 
             // Test 1: direct call
-            string a = obj.HelloMethod("A");
-            Console.WriteLine("Test 1: {0}", a);
+            Console.WriteLine( obj.HelloMethod(s) );
 
             // Test 2: delegate call
-            string b = method("B");
-            Console.WriteLine("Test 2: {0}", b);
+            Console.WriteLine( m1(s) );
 
             // Test 3: invoke call
-            string c = method.Invoke("C");
-            Console.WriteLine("Test 3: {0}", c);
+            Console.WriteLine( m1.Invoke(s) );
 
             // Test 4: async call, with ref
-            string arg = "D";
-            ret = method_with_ref.BeginInvoke(ref arg, null, null);
-            string d = method_with_ref.EndInvoke(ref arg, ret);
-            Console.WriteLine("Test 4: {0}", d);
+            tmp = m2.BeginInvoke(ref s, null, null);
+            Console.WriteLine( m2.EndInvoke(ref s, tmp) );
 
             // Test 5: async call, no ref
-            ret = method.BeginInvoke("E", null, null);
-            string e = method.EndInvoke(ret);
-            Console.WriteLine("Test 5: {0}", e);
+            tmp = m1.BeginInvoke(s, null, null);
+            Console.WriteLine( m1.EndInvoke(tmp) );
 
             return 0;
         }

@@ -9,13 +9,12 @@ namespace RemotingBug
     {
         public string HelloMethod(string name)
         {
-            return "Hi " + name;
+            return string.Format("{0} #{1}", name, ++counter);
         }
 
-        public string HelloMethodWithRef(ref string name)
-        {
-            return "Hi " + name;
-        }
+        public string HelloMethodWithRef(ref string name) { return HelloMethod(name); }
+
+        private static int counter = 0;
     }
 }
 
