@@ -7,32 +7,90 @@
 #include <iostream>
 #include <streambuf>
 #include <cstdint>
+#include <cmath>
 
 //char const *chr = "\n 0123456789abcdefghijklmnopqrstuvwxyz!#%(){}[]<>+=/*:;.,~_";
 
-std::vector<char> data;
+struct data_stream : std::vector<uint8_t>
+{
+    inline int size() { return std::vector<uint8_t>::size(); }
 
-int count() { return (int)data.size() * 2; }
-uint8_t get(int pos) { return (pos & 1) ? (uint8_t)data[pos / 2] >> 4 : (uint8_t)data[pos / 2] & 0xf; }
+    inline void push_back2(uint8_t a, uint8_t b)
+    {
+        push_back(a);
+        push_back(b);
+    }
+
+    inline uint64_t get(int pos, int count) const
+    {
+        uint64_t z = 0;
+        for (int i = 0; i < count; ++i)
+            z |= (uint64_t)(*this)[pos + i] << (4 * i);
+        return z;
+    }
+};
+
+std::map<std::vector<uint8_t>, int> make_dict()
+{
+    std::map<std::vector<uint8_t>, int> ret;
+    for (uint8_t c = 0; c < 16; ++c)
+        ret[{ c }] = c;
+    return ret;
+}
 
 int main()
 {
-    data = { std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>() };
+    // Read stdin into a vector of nybbles
+    data_stream data;
+    for (uint8_t ch : std::vector<char>{ std::istreambuf_iterator<char>(std::cin),
+                                         std::istreambuf_iterator<char>() } )
+        data.push_back2(ch & 0xf, ch >> 4);
 
+    printf("Read %d bytes (%d nybbles, %d bits)\n",
+           data.size() / 2, data.size(), 4 * data.size());
+    printf("Would be encoded as %d tokens in optimal case, %d with custom base59\n",
+           (int)std::ceil(4 * data.size() / std::log2(59)), (4 * data.size() * 8 + 46) / 47);
+
+#if 0
     // Analyze subsequences
-    //for (int i = 0; 
+    for (int size = 2; size <= 8; size++)
+    //for (int size = 16; size > 0; size--)
+    {
+        printf("Counting sequences of size %d\n", size);
+        std::map<uint64_t, int> hist;
+        for (int i = 0; i < data.size() - size; ++i)
+        {
+            uint64_t z = data.get(i, size);
+            if (hist.count(z))
+                continue;
+            for (int j = i; j < data.size() - size; ++j)
+            {
+                bool ok = true;
+                for (int n = 0; ok && n < size; ++n)
+                    if (data[j + n] != data[i + n])
+                        ok = false;
+                if (ok)
+                {
+                    ++hist[z];
+                    j += size - 1;
+                }
+            }
+        }
+        for (auto const &kv : hist)
+            if (kv.second > 1)
+                printf("%d [size: %d count: %d] %08lx\n", kv.second * (size - 1), size, kv.second, kv.first);
+    }
+#endif
 
-    std::map<std::vector<uint8_t>, int> dict;
-    for (uint8_t c = 0; c < 16; ++c)
-        dict[{ c }] = c;
+    auto dict = make_dict();
 
     int total = 0;
     int n = 16;
     std::vector<uint8_t> w;
     //printf("Output:");
-    for (int i = 0; i < count(); ++i)
+    for (int i = 0; i < data.size(); ++i)
     {
-        uint8_t ch = get(i);
+        uint8_t ch = data[i];
         auto wc = w;
         wc.push_back(ch);
         if (dict.count(wc))
@@ -42,7 +100,13 @@ int main()
         else
         {
             //printf(" %d", dict[w]);
-            total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
+//            total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
+            total += dict[w] < 32 ? 1 : 2;
+            if (n >= 32 + 27 * 32)
+            {
+                dict = make_dict();
+                n = 16;
+            }
             dict[wc] = n++;
             w = { ch };
         }
@@ -50,9 +114,9 @@ int main()
     if (!w.empty())
     {
         //printf(" %d", dict[w]);
-        total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
+        total += dict[w] < 32 ? 1 : 2;
     }
     //printf("\n");
-    printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", total, int(total * 5.88264304936184125886), count() / 2, count() * 4);
+    printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", total, int(total * 5.88264304936184125886), data.size() / 2, data.size() * 4);
 }
 
