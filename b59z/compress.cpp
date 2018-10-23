@@ -9,6 +9,12 @@
 #include <cstdint>
 #include <cmath>
 
+// Number of tokens in our alphabet
+#define TOKEN_COUNT 59
+// Number of tokens that encode higher order bytes
+#define HIGH_TOKENS 27
+#define LOW_TOKENS (TOKEN_COUNT - HIGH_TOKENS)
+
 //char const *chr = "\n 0123456789abcdefghijklmnopqrstuvwxyz!#%(){}[]<>+=/*:;.,~_";
 
 struct data_stream : std::vector<uint8_t>
@@ -49,7 +55,7 @@ int main()
     printf("Read %d bytes (%d nybbles, %d bits)\n",
            data.size() / 2, data.size(), 4 * data.size());
     printf("Would be encoded as %d tokens in optimal case, %d with custom base59\n",
-           (int)std::ceil(4 * data.size() / std::log2(59)), (4 * data.size() * 8 + 46) / 47);
+           (int)std::ceil(4 * data.size() / std::log2(TOKEN_COUNT)), (4 * data.size() * 8 + 46) / 47);
 
 #if 0
     // Analyze subsequences
@@ -100,16 +106,16 @@ int main()
         else
         {
             //printf(" %d", dict[w]);
-            total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
-//            total += dict[w] < 32 ? 1 : 2;
+            total += dict[w] < LOW_TOKENS ? 1 : dict[w] < LOW_TOKENS * HIGH_TOKENS ? 2 : 3;
+//            total += dict[w] < LOW_TOKENS ? 1 : 2;
             // Move emitted item to most recently used, i.e. position 16
             int index = dict[w];
-            int new_index = 16;
+            int new_index = (index - 16) / 2 + 16;
             for (auto &kv : dict)
                 if (kv.second >= new_index && kv.second < index)
                     ++kv.second;
             dict[w] = new_index;
-            // Insert new entry in our dictionary, at position 17
+            // Insert new entry in our dictionary, at position 24
             for (auto &kv : dict)
                 if (kv.second >= 17)
                     ++kv.second;
@@ -121,8 +127,8 @@ int main()
     if (!w.empty())
     {
         //printf(" %d", dict[w]);
-        total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
-//        total += dict[w] < 32 ? 1 : 2;
+        total += dict[w] < LOW_TOKENS ? 1 : dict[w] < LOW_TOKENS * HIGH_TOKENS ? 2 : 3;
+//        total += dict[w] < LOW_TOKENS ? 1 : 2;
     }
     //printf("\n");
     printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", total, int(total * 5.88264304936184125886), data.size() / 2, data.size() * 4);
