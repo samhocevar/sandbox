@@ -100,21 +100,29 @@ int main()
         else
         {
             //printf(" %d", dict[w]);
-//            total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
-            total += dict[w] < 32 ? 1 : 2;
-            if (n >= 32 + 27 * 32)
-            {
-                dict = make_dict();
-                n = 16;
-            }
-            dict[wc] = n++;
+            total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
+//            total += dict[w] < 32 ? 1 : 2;
+            // Move emitted item to most recently used, i.e. position 16
+            int index = dict[w];
+            int new_index = 16;
+            for (auto &kv : dict)
+                if (kv.second >= new_index && kv.second < index)
+                    ++kv.second;
+            dict[w] = new_index;
+            // Insert new entry in our dictionary, at position 17
+            for (auto &kv : dict)
+                if (kv.second >= 17)
+                    ++kv.second;
+            dict[wc] = 17;
+            ++n;
             w = { ch };
         }
     }
     if (!w.empty())
     {
         //printf(" %d", dict[w]);
-        total += dict[w] < 32 ? 1 : 2;
+        total += dict[w] < 32 ? 1 : dict[w] < 32 * 27 ? 2 : 3;
+//        total += dict[w] < 32 ? 1 : 2;
     }
     //printf("\n");
     printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", total, int(total * 5.88264304936184125886), data.size() / 2, data.size() * 4);
