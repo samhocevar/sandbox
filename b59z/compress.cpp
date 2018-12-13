@@ -17,14 +17,31 @@
 
 //char const *chr = "\n 0123456789abcdefghijklmnopqrstuvwxyz!#%(){}[]<>+=/*:;.,~_";
 
-struct data_stream : std::vector<uint8_t>
+struct mystream : std::vector<uint8_t>
 {
     inline int size() { return std::vector<uint8_t>::size(); }
 
-    inline void push_back2(uint8_t a, uint8_t b)
+    inline void push_two(uint8_t a, uint8_t b)
     {
         push_back(a);
         push_back(b);
+    }
+
+    inline void push_index(int index)
+    {
+        if (index < LOW_TOKENS)
+            push_back(index);
+        else if (index < LOW_TOKENS * HIGH_TOKENS)
+        {
+            push_back(LOW_TOKENS + index % HIGH_TOKENS);
+            push_back(index / HIGH_TOKENS);
+        }
+        else
+        {
+            push_back(LOW_TOKENS + index % HIGH_TOKENS);
+            push_back(LOW_TOKENS + index / HIGH_TOKENS % HIGH_TOKENS);
+            push_back(index / HIGH_TOKENS / HIGH_TOKENS);
+        }
     }
 
     inline uint64_t get(int pos, int count) const
@@ -47,10 +64,10 @@ std::map<std::vector<uint8_t>, int> make_dict()
 int main()
 {
     // Read stdin into a vector of nybbles
-    data_stream data;
+    mystream data;
     for (uint8_t ch : std::vector<char>{ std::istreambuf_iterator<char>(std::cin),
                                          std::istreambuf_iterator<char>() } )
-        data.push_back2(ch & 0xf, ch >> 4);
+        data.push_two(ch & 0xf, ch >> 4);
 
     printf("Read %d bytes (%d nybbles, %d bits)\n",
            data.size() / 2, data.size(), 4 * data.size());
@@ -88,12 +105,13 @@ int main()
     }
 #endif
 
+    mystream compressed;
+
     auto dict = make_dict();
 
-    int total = 0;
     int n = 16;
     std::vector<uint8_t> w;
-    //printf("Output:");
+//    printf("Output:");
     for (int i = 0; i < data.size(); ++i)
     {
         uint8_t ch = data[i];
@@ -105,32 +123,33 @@ int main()
         }
         else
         {
-            //printf(" %d", dict[w]);
-            total += dict[w] < LOW_TOKENS ? 1 : dict[w] < LOW_TOKENS * HIGH_TOKENS ? 2 : 3;
-//            total += dict[w] < LOW_TOKENS ? 1 : 2;
-            // Move emitted item to most recently used, i.e. position 16
             int index = dict[w];
-            int new_index = (index - 16) / 2 + 16;
+            printf("Emit #%d \"", dict[w]); for (auto c : w) printf("%x", c); printf("\"\n");
+            compressed.push_index(index);
+
+            // Move emitted item to most recently used, i.e. position 16
+            int new_index = 16;
+            //int new_index = (index - 16) / 2 + 16;
             for (auto &kv : dict)
                 if (kv.second >= new_index && kv.second < index)
                     ++kv.second;
             dict[w] = new_index;
-            // Insert new entry in our dictionary, at position 24
+            // Insert new entry in our dictionary, at position 16
             for (auto &kv : dict)
-                if (kv.second >= 17)
+                if (kv.second >= 16)
                     ++kv.second;
-            dict[wc] = 17;
+            printf("Store new \""); for (auto c : wc) printf("%x", c); printf("\"\n");
+            dict[wc] = 16;
             ++n;
             w = { ch };
         }
     }
     if (!w.empty())
     {
-        //printf(" %d", dict[w]);
-        total += dict[w] < LOW_TOKENS ? 1 : dict[w] < LOW_TOKENS * HIGH_TOKENS ? 2 : 3;
-//        total += dict[w] < LOW_TOKENS ? 1 : 2;
+        compressed.push_index(dict[w]);
+//        printf(" %d", dict[w]);
     }
-    //printf("\n");
-    printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", total, int(total * 5.88264304936184125886), data.size() / 2, data.size() * 4);
+//    printf("\n");
+    printf("Total: %d tokens (%d bits) for %d bytes (%d bits)\n", compressed.size(), int(compressed.size() * 5.88264304936184125886), data.size() / 2, data.size() * 4);
 }
 
