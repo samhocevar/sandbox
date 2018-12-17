@@ -4,7 +4,8 @@ __lua__
 
 function gamma(x)
   local y=sqrt(sqrt(x))
-  return x*x*y*sqrt(y)
+  return x*x*y
+  --return x*x*y*sqrt(y)
 end
 
 function srgb(c)
@@ -88,7 +89,11 @@ function make_pairs(p)
         for n=1,3 do
           d += abs(a[n]-b[n])
         end
-        add(l, { d, a, b })
+--[[
+        if d < 1.0 then
+          add(l, { d, a, b })
+        end
+]]--
       end
     end
   end
@@ -106,7 +111,8 @@ function make_pairs(p)
   local count = #p
   for i=1,count do
     for j=1,count do
-      if lum(p[i]) < lum(p[j]) then
+      if lum(p[i]) < lum(p[j]) -- and true
+         then
         local c = {}
         c.r = 0.5 * (p[i].r + p[j].r)
         c.g = 0.5 * (p[i].g + p[j].g)
@@ -137,6 +143,11 @@ function _init()
       planes[1][o] = cos(x/512)
       planes[2][o] = cos(y/512)
       planes[3][o] = sin(x/512+0.5)
+      local a = atan2(x-64,y-64)
+      local r = sqrt((x-64)^2+(y-64)^2)/100
+      planes[1][o] = r^2*(sin(a+0.3333)*0.5+0.5)
+      planes[2][o] = r^2*(sin(a)*0.5+0.5)
+      planes[3][o] = r^2*(sin(a-0.3333)*0.5+0.5)
     end
   end
 
@@ -146,14 +157,14 @@ function _init()
       local col = {}
       for n = 1,3 do
         col[n] = planes[n][o]
-        col[n] += rnd(0.02)
+        --col[n] += rnd(0.18) - 0.09
       end
       -- find nearest color
-      local best, best_dist = 0, 1000
+      local best, best_dist = 1, 1000
       for i=1,#p do
         local dist = 0
         for n=1,3 do
-          dist += abs(col[n] - p[i][n])^2
+          dist += abs(col[n] - p[i][n])
         end
         if dist < best_dist then
           best, best_dist = i, dist
@@ -162,12 +173,14 @@ function _init()
       -- compute error
       for n=1,3 do
         col[n] -= p[best][n]
-        local dist = { [y*128+x+1]= 7/16,
-                       [(y+1)*128+x-1]= 1/16,
-                       [(y+1)*128+x]= 5/16,
-                       [(y+1)*128+x+1]= 3/16 }
+        local dist = { [y*128+x+1]= 7/19,
+                       [(y+1)*128+x-1]= 1/19,
+                       [(y+1)*128+x]= 5/19,
+                       [(y+1)*128+x+1]= 3/19 }
+--local o2=o
         for o,s in pairs(dist) do
-          planes[n][o] = shl(planes[n][o]) - s*col[n]
+--print(o2.." -> "..o.." "..s)
+          planes[n][o] = shl(planes[n][o]) + s*col[n]
         end
       end
 --[[
@@ -177,8 +190,10 @@ function _init()
 ]]--
       -- store in arrays
       local t = { p[best].i0, p[best].i1 }
-      pset(x, y, t[(x + y) % 2 + 1])
-      sset(x, y, t[2 - (x + y) % 2])
+      --local s = (x + y) % 2
+      local s = (flr(x / 2) + y) % 2
+      pset(x, y, t[s + 1])
+      sset(x, y, t[2 - s])
     end
     memcpy(0x2000, 0x6000, 0x2000)
   end
@@ -196,11 +211,7 @@ _update60 = function()end
 function _draw()
   frame += 1
   cls()
-  if frame % 2 == 0 then
-    memcpy(0x6000, 0x0, 0x2000)
-  else
-    memcpy(0x6000, 0x2000, 0x2000)
-  end
+  memcpy(0x6000, frame % 2 * 0x2000, 0x2000)
 --[[
   for i=1,#l do
     local x = (i-1)%n*s
