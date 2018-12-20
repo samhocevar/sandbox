@@ -10,7 +10,9 @@ __lua__
   - evaluator is ok but relies on parser correctness
 --]]
 
-fn = {
+fn1 = {
+  srand=srand,
+  print=function(s)add(d, {6, tostr(s)})end,
   abs=abs,
   bnot=bnot,
   cos=cos,
@@ -47,6 +49,7 @@ prec = {
   ['@'] = 4, -- unary minus
 }
 
+null = {}
 punc = "(),"
 digit = "0123456789"
 alnum = digit.."abcdefghijklmnopqrstuvwxyz_"
@@ -78,6 +81,14 @@ function parse_id(str)
     return sub(str, 1, i)
 end
 
+function parse_str(str)
+    local i, next = 1, 2
+    while next <= #str and sub(str, next, next) != '"' do
+        i, next = next, next + 1
+    end
+    return sub(str, 1, next)
+end
+
 function tokenize(str)
     local ret = {}
     while true do
@@ -95,9 +106,11 @@ function tokenize(str)
             add(ret, ch)
         elseif find(digit, ch) then
             add(ret, parse_num(str))
+        elseif ch == '"' then
+            add(ret, parse_str(str))
         elseif find(alnum, ch) then
             local id = parse_id(str)
-            if not fn[id] and not fn2[id] then
+            if not fn1[id] and not fn2[id] then
                 return nil, "unknown function: "..id
             end
             add(ret, id)
@@ -122,6 +135,8 @@ function parse(tokens)
         end
         if tonum(t) then
             add(output, tonum(t))
+        elseif sub(t,1,1) == '"' then
+            add(output, sub(t, 2, #t - 1))
         elseif t == "(" then
             push(t)
         elseif t == ")" then
@@ -133,14 +148,14 @@ function parse(tokens)
             end
         elseif prec[t] then
             while peek() and peek() != "(" and
-                (fn[peek()] or -- function
+                (fn1[peek()] or -- function
                  fn2[peek()] or -- function
                  prec[peek()] > prec[t] or -- operator with greater precedence
                  prec[peek()] == prec[t]) do -- operator with equal precedence, left-assoc
                 add(output, pop())
             end
             push(t)
-        elseif fn[t] or fn2[t] then -- function
+        elseif fn1[t] or fn2[t] then -- function
             push(t)
         end
     end
@@ -154,22 +169,32 @@ function parse(tokens)
     return output
 end
 
+function sanitize(x)
+  if x == nil then
+    return null
+  end
+  return x
+end
+
 function eval(tokens)
     local stack = {}
     for i=1,#tokens do
         local t = tokens[i]
+if fn1[t] or fn2[t] or prec[t] then
+  add(d, {7, #stack.." args for "..t})
+end
         if tonum(t) then
             add(stack, t)
-        elseif fn[t] then
+        elseif fn1[t] then
             if #stack < 1 then
                 return nil, "too few arguments for "..t
             end
-            stack[#stack] = fn[t](stack[#stack])
+            stack[#stack] = sanitize(fn1[t](stack[#stack]))
         elseif fn2[t] then
             if #stack < 2 then
                 return nil, "too few arguments for "..t
             end
-            stack[#stack - 1] = fn2[t](stack[#stack - 1], stack[#stack])
+            stack[#stack - 1] = sanitize(fn2[t](stack[#stack - 1], stack[#stack]))
             stack[#stack] = nil
         elseif prec[t] then
             if #stack < 2 then
@@ -240,7 +265,13 @@ function _update60()
                     r = nil
                 end
             end
-            if r then
+            if r == null then
+                add(d, {11, '[nil]'})
+                add(h, s)
+            elseif type(r) == 'string' then
+                add(d, {11, '"'..r..'"'})
+                add(h, s)
+            elseif r then
                 add(d, {11, r..sub("          ",#tostr(r),11).."  -- "..tostr(r,1)})
                 add(h, s)
             elseif e then
