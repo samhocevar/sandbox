@@ -13,12 +13,14 @@ end
 function _init()
  cls()
  step=0
- mul=32
+ mul=128
  substep=0
  state = { 0, 0 }
  print("count   lua cost + cpu cost", 3, 109, 12)
  print("         *65536     *65536", 3, 115, 12)
 end
+
+function sqrt2(x) local y=x^2.125 return (y+x/y)/2 end
 
 function _update60()
  substep+=1
@@ -30,15 +32,20 @@ function _update60()
 
  -- empty loop to clean stats
  local sa = { stat(1), stat(2) }
- for i=1,step do end
+-- for i=1,step do end
+-- local sb = { stat(1), stat(2) }
+ local sb = sa
 
- local sb = { stat(1), stat(2) }
  for i=1,step do
+--  i=i^2
+  i=i*2
+  --sqrt2(i)
  --rectfill(0,0,15,15)
 --rect(0,0,43,2)
   --sspr(0,0,8,8,0,0,16,8)
 --map(0,0,0,0,4,4)
-cos(1.234)
+--cos(1.234)
+--circfill(-20,64,21)
 --printh("x",3,3,3)
 --line(17,35,91,15)
 --sfx(1)
@@ -61,8 +68,10 @@ cos(1.234)
 
  local t1 = cost2tick(sc[1]-2*sb[1]+sa[1])
  local t2 = cost2tick(sc[2]-2*sb[2]+sa[2])
- state[1]=0.5*state[1]+0.5*(t1-t2)/(step > 0 and step or 1)
- state[2]=0.5*state[2]+0.5*t2/(step > 0 and step or 1)
+-- state[1]=0.5*state[1]+0.5*(t1-t2)/(step > 0 and step or 1)
+-- state[2]=0.5*state[2]+0.5*t2/(step > 0 and step or 1)
+ state[1]=0.5*state[1]+0.5*(t1-t2)
+ state[2]=0.5*state[2]+0.5*t2
 end
 
 function _draw()
