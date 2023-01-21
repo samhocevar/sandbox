@@ -4,7 +4,13 @@ Fuck 2FA and TOTP, I am fed up with having to pull my phone every two minutes wh
 another service. This script runs forever, updating my OpenVPN login/pass file with the correct
 TOTP token.
 
-Requires the oathtool package: `pip3 install oathtool`
+Usage:
+
+```sh
+openvpn-totp.py <totp_file> <cred_file>
+```
+
+## What does it do?
 
 Typically your OpenVPN configuration file will have an entry like this:
 
@@ -15,12 +21,17 @@ And the `joe.cred` file will have your login and password:
     joe.smith
     AJBgNVBAsMAk9VMSIw
 
-This script will regularly update the `joe.cred` file with the TOTP token, *e.g.*:
+This script will regularly update the `joe.cred` file and append the TOTP token to the password
+line, without you having to type it in every time, *e.g.*:
 
     joe.smith
     AJBgNVBAsMAk9VMSIw903948
 
-## Windows usage
+## Installing
+
+Requires Python 3 and the oathtool package (`pip3 install oathtool`)
+
+### Windows usage
 
 On Windows the usual way to use this will be through the Task Scheduler, just create a new task and
 make sure ALL of the following is true:
@@ -38,7 +49,7 @@ make sure ALL of the following is true:
  - UNSET “Stop if the computer switches to battery power”
  - UNSET “Stop the task if it runs longer than: …”
 
-## Linux usage
+### Linux usage
 
 You may use `crontab` and its special `@reboot` directive. See `man 5 crontab` for more
 information.
@@ -47,4 +58,13 @@ information.
 
 ## Does this reduce security?
 
-TL;DR: Yes. Don’t fuck up.
+TL;DR: Yes. If unsure, don’t use this.
+
+Of course, TOTP’s main purpose is to mitigate compromised passwords. It prevents situations when
+a password is stolen through *e.g.* a phishing operation, when a user re-uses the same password
+on multiple services, or when they use a password so simple that it can be easily brute-forced.
+The suggested setup for this script still protects you against that, if someone just steals your
+password you’re still OK.
+
+**However**, if someone gains control of your whole PC then you’re really screwed because it’s
+as if they had both your password and your 2FA device. So don’t fuck up.
