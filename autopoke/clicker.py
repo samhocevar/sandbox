@@ -89,8 +89,8 @@ class Clicker(threading.Thread):
                     self.rush = False
                 else:
                     print('Start rushing!')
-                self.exploring = True
                     self.rush = True
+                self.exploring = True
             elif self.alt:
                 if key.char == CLICK:
                     self.saved_pos = self.mouse.position
@@ -143,7 +143,8 @@ TILE_FIGHT =  TILE_SAFE # or 3
 TILE_CHEST =  4
 TILE_HIDDEN = 5
 TILE_BOSS =   6
-TILE_START =  7
+TILE_AVOID =  7 # Used to avoid fights
+TILE_START =  8
 
 COLORMAP = (
     (TILE_PLAYER, GREEN),
@@ -175,19 +176,19 @@ class Explorer(threading.Thread):
 
     def roam(self, x0, y0, w, h):
         left, right, top, bottom = x0, x0, y0, y0
-        while l := self.find_box(left - 4, y0):
+        while l := self.find_box(left - 4, y0 + 2): 
             if left == l[0]:
                 break
             left = l[0]
-        while l := self.find_box(right + w + 4, y0):
+        while l := self.find_box(right + w + 2, y0 + 2):
             if right == l[0]:
                 break
             right = l[0]
-        while l := self.find_box(x0, top - 4):
+        while l := self.find_box(x0 + 2, top - 4):
             if top == l[1]:
                 break
             top = l[1]
-        while l := self.find_box(x0, bottom + h + 4):
+        while l := self.find_box(x0 + 2, bottom + h + 2):
             if bottom == l[1]:
                 break
             bottom = l[1]
@@ -195,8 +196,8 @@ class Explorer(threading.Thread):
         mx = round((right - left) / w + 1)
         my = round((bottom - top) / h + 1)
         # Readjust cell width/height values
-        w = (right - left) / (mx - 1)
-        h = (bottom - top) / (my - 1)
+        w = (right - left) / (mx - 1) if mx > 1 else w
+        h = (bottom - top) / (my - 1) if my > 1 else h
         # Place player
         sx = round((x0 - left) / w)
         sy = round((y0 - top) / h)
@@ -214,15 +215,18 @@ class Explorer(threading.Thread):
                     has_boss = True
                 if data[y][x] == -1:
                     print('Error: unknown color at', x, y, ':', c)
+        # Tweak the map
         # If the boss was found, mark all unknown tiles as safe for visiting
-        if has_boss:
-            for y in range(my):
-                for x in range(mx):
-                    if data[y][x] == TILE_HIDDEN:
-                        data[y][x] = TILE_SAFE
+        # If rushing, try to avoid fights
+        for y in range(my):
+            for x in range(mx):
+                if has_boss and data[y][x] == TILE_HIDDEN:
+                    data[y][x] = TILE_SAFE
+                if clicker.rush and data[y][x] == TILE_FIGHT:
+                    data[y][x] = TILE_AVOID
         # Find the best target and the direction to reach it
         best_move, best_cost = (0, 0), 1e32
-        print('')
+        #print('')
         for y in range(my):
             for x in range(mx):
                 if data[y][x] >= TILE_SAFE:
@@ -230,9 +234,9 @@ class Explorer(threading.Thread):
                     #print('target:', x, y, 'cost:', cost, 'move:', direction)
                     if cost < best_cost:
                         best_move, best_cost = direction, cost
-        lut = '@.:Xo?BS'
-        for l in data:
-            print('|' + ' '.join(lut[c] for c in l) + '|')
+        #lut = '@.:Xo?B-S'
+        #for l in data:
+        #    print('|' + ' '.join(lut[c] for c in l) + '|')
         key = ['a', 'w', None, 's', 'd'][2 * best_move[0] + best_move[1] + 2]
         if key and not clicker.exit:
             self.kbd.press(key)
@@ -250,7 +254,7 @@ class Explorer(threading.Thread):
     def compute_cost(data, sx, sy, tx, ty):
         mx, my = len(data[0]), len(data)
         def weight(x, y):
-            return pow(10, data[y][x]) + abs(x - mx * 0.49) + abs(y - my * 0.49)
+            return pow(10, data[y][x]) + abs(x - mx * 0.49) / 10 + abs(y - my * 0.47) / 100
         visited = set()
         todo = []
         heappush(todo, (0, (sx, sy), ()))
@@ -306,9 +310,9 @@ class Explorer(threading.Thread):
         if self.pic.getpixel((x0 + w // 2, y0 + h)) != BORDER:
             return None
         # Check that the contents are same-coloured
-        if self.pic.getpixel((x0 + w // 4, y0 + h // 2)) != c:
+        if self.pic.getpixel((x0 + w // 16, y0 + h // 4)) != c:
             return None
-        if self.pic.getpixel((x0 + w // 4 * 3, y0 + h // 2)) != c:
+        if self.pic.getpixel((x0 + w * 15 // 16, y0 + h * 3 // 4)) != c:
             return None
         # Return the coordinates!
         return x0, y0, w, h
