@@ -159,6 +159,8 @@ COLORMAP = (
 class Explorer(threading.Thread):
     def run(self):
         self.kbd = Kbd()
+        self.history = list(range(12)) # Meaningless but unique values
+        self.last_move = (0, 0)
         while not clicker.exit:
             l = None
             try:
@@ -201,6 +203,8 @@ class Explorer(threading.Thread):
         # Place player
         sx = round((x0 - left) / w)
         sy = round((y0 - top) / h)
+        if self.history[-1] != (sx, sy):
+            self.history = [*self.history[1:], (sx, sy)]
         # Compute map
         data = [[-1] * mx for _ in range(my)]
         has_boss = False
@@ -225,27 +229,32 @@ class Explorer(threading.Thread):
                 if clicker.rush and data[y][x] == TILE_FIGHT:
                     data[y][x] = TILE_AVOID
         # Find the best target and the direction to reach it
-        best_move, best_cost = (0, 0), 1e32
+        best_move, best_next_move, best_cost = (0, 0), (0, 0), 1e32
         #print('')
         for y in range(my):
             for x in range(mx):
                 if data[y][x] >= TILE_SAFE:
-                    direction, cost = self.compute_cost(data, sx, sy, x, y)
-                    #print('target:', x, y, 'cost:', cost, 'move:', direction)
+                    move, next_move, cost = self.compute_cost(data, sx, sy, x, y)
+                    #print('target:', x, y, 'cost:', cost, 'move:', move)
                     if cost < best_cost:
-                        best_move, best_cost = direction, cost
+                        best_move, best_next_move, best_cost = move, next_move, cost
         #lut = '@.:Xo?B-S'
         #for l in data:
         #    print('|' + ' '.join(lut[c] for c in l) + '|')
         key = ['a', 'w', None, 's', 'd'][2 * best_move[0] + best_move[1] + 2]
         if key and not clicker.exit:
             self.kbd.press(key)
-            time.sleep(0.01)
             self.kbd.release(key)
-            # Safeguard if lagging: wait a bit longer
-            delay = 0.02
-            for n in range(2, 5):
-                x2, y2 = sx + n * best_move[0], sy + n * best_move[1]
+            delay = 0.01
+            # Safeguard if lagging: if we appear to be stuck, wait a bit longer
+            if len(set(self.history)) <= len(self.history) / 2:
+                delay = randrange(2, 5) / 10
+            # If the next move lands us in danger zone, wait longer, too
+            if best_next_move:
+                x2, y2 = sx + 2 * best_move[0], sy + 2 * best_move[1]
+                if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS):
+                    delay = 0.2
+                x2, y2 = x2 + best_next_move[0], y2 + best_next_move[1]
                 if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS):
                     delay = 0.2
             time.sleep(delay)
@@ -254,7 +263,7 @@ class Explorer(threading.Thread):
     def compute_cost(data, sx, sy, tx, ty):
         mx, my = len(data[0]), len(data)
         def weight(x, y):
-            return pow(10, data[y][x]) + abs(x - mx * 0.49) / 10 + abs(y - my * 0.47) / 100
+            return pow(10, 2 + data[y][x]) + randrange(10)
         visited = set()
         todo = []
         heappush(todo, (0, (sx, sy), ()))
@@ -270,7 +279,7 @@ class Explorer(threading.Thread):
                 new_cost = cost + weight(x1, y1)
                 new_path = path + (d,)
                 if (x1, y1) == (tx, ty):
-                    return new_path[0], new_cost
+                    return new_path[0], new_path[1] if len(new_path) >= 2 else None, new_cost
                 heappush(todo, (new_cost, (x1, y1), new_path))
 
     def find_hero(self):
