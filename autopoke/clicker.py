@@ -8,7 +8,9 @@ HATCH_SECONDS = 25
 
 HATCH = 'h'
 CRAWL = 'c'
-RUSH = 'r'
+RUSH = '1'
+SUPER = '2'
+ULTRA = '3'
 CLICK = 'x'
 QUIT = 'q'
 
@@ -34,6 +36,7 @@ class Clicker(threading.Thread):
         self.hatching = False
         self.exploring = False
         self.rush = False
+        self.rush_mode = ''
 
         self.mouse = Controller()
         self.kbd = Kbd()
@@ -83,14 +86,11 @@ class Clicker(threading.Thread):
             elif key.char == HATCH and self.clicking and not self.hatching:
                 print('Hatching!')
                 self.hatching = True
-            elif key.char in (CRAWL, RUSH) and self.clicking and not self.exploring:
-                if key.char == CRAWL:
-                    print('Start crawling!')
-                    self.rush = False
-                else:
-                    print('Start rushing!')
-                    self.rush = True
+            elif key.char in (CRAWL, RUSH, SUPER, ULTRA) and self.clicking and not self.exploring:
                 self.exploring = True
+                self.rush = key.char != CRAWL
+                self.rush_mode = key.char
+                print(f'Start crawling! Mode is {self.rush_mode}')
             elif self.alt:
                 if key.char == CLICK:
                     self.saved_pos = self.mouse.position
@@ -126,6 +126,7 @@ if True:
     DARK_YELLOW = (120, 98, 7) # OK
     PURPLE = (155, 89, 182) # OK
     DARK_PURPLE = (77, 44, 91) # OK
+    DARK_BROWN = (45, 45, 32) # OK
 else:
     GREEN = (127, 202, 116)
     BLUE =  (101, 153, 218)
@@ -135,6 +136,7 @@ else:
     DARK_YELLOW = (113, 97, 16)
     PURPLE = (139, 93, 181)
     DARK_PURPLE = (69, 46, 90)
+    DARK_BROWN = (45, 45, 32) # FIXME
 
 TILE_PLAYER = 0
 TILE_EMPTY =  1
@@ -142,9 +144,10 @@ TILE_SAFE =   2
 TILE_FIGHT =  TILE_SAFE # or 3
 TILE_CHEST =  4
 TILE_HIDDEN = 5
-TILE_BOSS =   6
-TILE_AVOID =  7 # Used to avoid fights
-TILE_START =  8
+TILE_STAIRS = 6
+TILE_BOSS =   7
+TILE_AVOID =  8 # Used to avoid fights
+TILE_START =  9
 
 COLORMAP = (
     (TILE_PLAYER, GREEN),
@@ -153,13 +156,14 @@ COLORMAP = (
     (TILE_CHEST,  YELLOW, DARK_YELLOW),
     (TILE_HIDDEN, BLACK),
     (TILE_BOSS,   PURPLE, DARK_PURPLE),
+    (TILE_STAIRS, DARK_BROWN),
     (TILE_START,  BLUE),
 )
 
 class Explorer(threading.Thread):
     def run(self):
         self.kbd = Kbd()
-        self.history = list(range(12)) # Meaningless but unique values
+        self.reset_history()
         self.last_move = (0, 0)
         while not clicker.exit:
             l = None
@@ -207,7 +211,7 @@ class Explorer(threading.Thread):
             self.history = [*self.history[1:], (sx, sy)]
         # Compute map
         data = [[-1] * mx for _ in range(my)]
-        has_boss = False
+        found_tiles = set()
         for y in range(my):
             for x in range(mx):
                 c = self.pic.getpixel((left + 2 + x * w, top + 2 + y * h))
@@ -215,24 +219,51 @@ class Explorer(threading.Thread):
                     for c0 in m[1:]:
                         if self.match_color(c, c0):
                             data[y][x] = m[0]
-                if data[y][x] == TILE_BOSS:
-                    has_boss = True
+                            found_tiles.add(m[0])
                 if data[y][x] == -1:
                     print('Error: unknown color at', x, y, ':', c)
         # Tweak the map
         # If the boss was found, mark all unknown tiles as safe for visiting
-        # If rushing, try to avoid fights
+        # If rushing but not super rushing, try to avoid fights
+        # If rushing and no more chests or hidden tiles, rush to the boss
+        chests_cleaned = TILE_HIDDEN not in found_tiles and TILE_CHEST not in found_tiles
+        has_end = TILE_BOSS in found_tiles or TILE_STAIRS in found_tiles
         for y in range(my):
             for x in range(mx):
-                if has_boss and data[y][x] == TILE_HIDDEN:
-                    data[y][x] = TILE_SAFE
+                if has_end and data[y][x] == TILE_HIDDEN:
+                    if clicker.rush and clicker.rush_mode in (SUPER, ULTRA):
+                        data[y][x] = TILE_EMPTY # Fights are small fry
+                    else:
+                        data[y][x] = TILE_SAFE
                 if clicker.rush and data[y][x] == TILE_FIGHT:
-                    data[y][x] = TILE_AVOID
+                    if clicker.rush_mode in (SUPER, ULTRA):
+                        data[y][x] = TILE_EMPTY # Fights are small fry
+                    elif not chests_cleaned:
+                        data[y][x] = TILE_HIDDEN # Priorise chests over fights
+                    else:
+                        data[y][x] = TILE_AVOID # Priorise boss over fights
+                #if clicker.rush and chests_cleaned and data[y][x] == TILE_BOSS:
+                #    data[y][x] = TILE_SAFE
         # Find the best target and the direction to reach it
         best_move, best_next_move, best_cost = (0, 0), (0, 0), 1e32
         #print('')
         for y in range(my):
             for x in range(mx):
+                if clicker.rush:
+                    # If the exit is found in ultra rush mode, ignore other targets
+                    # If there are chests in rush mode, ignore other targets
+                    if has_end and clicker.rush_mode == ULTRA:
+                        if data[y][x] not in (TILE_BOSS, TILE_STAIRS):
+                            continue
+                    else:
+                        if data[y][x] != TILE_CHEST and TILE_CHEST in found_tiles:
+                            continue
+                        if chests_cleaned and has_end and data[y][x] not in (TILE_BOSS, TILE_STAIRS):
+                            continue
+                else:
+                    # If there are fights in crawl mode, ignore other targets
+                    if data[y][x] != TILE_FIGHT and TILE_FIGHT in found_tiles:
+                        continue
                 if data[y][x] >= TILE_SAFE:
                     move, next_move, cost = self.compute_cost(data, sx, sy, x, y)
                     #print('target:', x, y, 'cost:', cost, 'move:', move)
@@ -249,21 +280,25 @@ class Explorer(threading.Thread):
             # Safeguard if lagging: if we appear to be stuck, wait a bit longer
             if len(set(self.history)) <= len(self.history) / 2:
                 delay = randrange(2, 5) / 10
+                self.reset_history()
             # If the next move lands us in danger zone, wait longer, too
+            x2, y2 = sx + 2 * best_move[0], sy + 2 * best_move[1]
+            if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS, TILE_STAIRS):
+                delay = 0.2
             if best_next_move:
-                x2, y2 = sx + 2 * best_move[0], sy + 2 * best_move[1]
-                if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS):
-                    delay = 0.2
                 x2, y2 = x2 + best_next_move[0], y2 + best_next_move[1]
-                if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS):
+                if x2 >= 0 and y2 >= 0 and x2 < mx and y2 < my and data[y2][x2] in (TILE_START, TILE_BOSS, TILE_STAIRS):
                     delay = 0.2
             time.sleep(delay)
+
+    def reset_history(self):
+        self.history = list(range(12)) # Meaningless but unique values
 
     @staticmethod
     def compute_cost(data, sx, sy, tx, ty):
         mx, my = len(data[0]), len(data)
         def weight(x, y):
-            return pow(10, 2 + data[y][x]) + randrange(10)
+            return pow(8, 2 + data[y][x])
         visited = set()
         todo = []
         heappush(todo, (0, (sx, sy), ()))
@@ -276,7 +311,8 @@ class Explorer(threading.Thread):
                 x1, y1 = cell[0] + d[0], cell[1] + d[1]
                 if x1 < 0 or y1 < 0 or x1 >= mx or y1 >= my or (x1, y1) in visited:
                     continue
-                new_cost = cost + weight(x1, y1)
+                bias = (16 + d[1]) / 16 # Priorise going up
+                new_cost = cost + bias + weight(x1, y1)
                 new_path = path + (d,)
                 if (x1, y1) == (tx, ty):
                     return new_path[0], new_path[1] if len(new_path) >= 2 else None, new_cost
@@ -341,6 +377,8 @@ print('Stop clicking: <alt>')
 print('Hatch mode:', HATCH)
 print('Dungeon crawl mode:', CRAWL)
 print('Dungeon rush mode:', RUSH)
+print('Dungeon super rush mode:', SUPER)
+print('Dungeon ultra rush mode:', ULTRA)
 print('Exit program: <alt> +', QUIT)
 print('')
 
