@@ -329,7 +329,7 @@ class Explorer(threading.Thread):
 
     @staticmethod
     def match_color(c1, c2):
-        return sum(map(abs, map(sub, c1, c2))) < 10
+        return sum(map(abs, map(sub, c1, c2))) < 1.0
 
     def find_box(self, x, y):
         # Get pixel colour
