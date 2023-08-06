@@ -21,7 +21,7 @@ QUIT = 'q'
 import time
 import threading
 from heapq import *
-from random import randrange
+from random import randrange, sample
 from operator import sub
 from pynput.mouse import Button, Controller, Listener as MouseListener
 from pynput.keyboard import GlobalHotKeys, Listener as KbdListener, Key, KeyCode, Controller as Kbd
@@ -126,6 +126,7 @@ if True:
     DARK_YELLOW = (120, 98, 7) # OK
     PURPLE = (155, 89, 182) # OK
     DARK_PURPLE = (77, 44, 91) # OK
+    BROWN = (91, 90, 64) # OK
     DARK_BROWN = (45, 45, 32) # OK
 else:
     GREEN = (127, 202, 116)
@@ -136,6 +137,7 @@ else:
     DARK_YELLOW = (113, 97, 16)
     PURPLE = (139, 93, 181)
     DARK_PURPLE = (69, 46, 90)
+    BROWN = (91, 90, 64) # FIXME
     DARK_BROWN = (45, 45, 32) # FIXME
 
 TILE_PLAYER = 0
@@ -156,7 +158,7 @@ COLORMAP = (
     (TILE_CHEST,  YELLOW, DARK_YELLOW),
     (TILE_HIDDEN, BLACK),
     (TILE_BOSS,   PURPLE, DARK_PURPLE),
-    (TILE_STAIRS, DARK_BROWN),
+    (TILE_STAIRS, BROWN, DARK_BROWN),
     (TILE_START,  BLUE),
 )
 
@@ -307,12 +309,12 @@ class Explorer(threading.Thread):
             if cell in visited:
                 continue
             visited.add(cell)
-            for d in [(0,1), (-1,0), (0,-1), (1,0)]:
+            choices = [(0,1), (-1,0), (0,-1), (1,0)]
+            for d in sample(choices, len(choices)):
                 x1, y1 = cell[0] + d[0], cell[1] + d[1]
                 if x1 < 0 or y1 < 0 or x1 >= mx or y1 >= my or (x1, y1) in visited:
                     continue
-                bias = (16 + d[1]) / 16 # Priorise going up
-                new_cost = cost + bias + weight(x1, y1)
+                new_cost = cost + weight(x1, y1)
                 new_path = path + (d,)
                 if (x1, y1) == (tx, ty):
                     return new_path[0], new_path[1] if len(new_path) >= 2 else None, new_cost
