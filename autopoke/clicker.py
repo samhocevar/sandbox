@@ -5,6 +5,7 @@
 
 CLICKS_PER_SECOND = 50
 HATCH_SECONDS = 25
+HDR = False # Is the screen HDR?
 
 HATCH = 'h'
 CRAWL = 'c'
@@ -117,7 +118,7 @@ class Clicker(threading.Thread):
 BORDER = (0, 0, 0)
 WHITE = (245, 245, 245)
 DARK_WHITE = (122, 122, 122)
-if True:
+if HDR:
     GREEN = (46, 204, 113) # OK
     BLUE =  (52, 152, 219) # OK
     BLACK = (51, 51, 51) # OK
